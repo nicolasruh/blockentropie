@@ -8,8 +8,21 @@
   const MAX_BUILD = 12;
   const MAX_TERMS_SHOWN = 8;
 
+  const EXAMPLES = [
+    { id: 'exAbra', text: 'ABRAKADABRA' },
+    { id: 'exBits4', text: '0100' },
+    { id: 'exAbc', text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
+    { id: 'exDe', text: 'Die Informationstheorie wurde 1948 von Claude Shannon begründet. Sie beschreibt, wie viel Information eine Nachricht enthält und wie stark man sie im besten Fall verlustfrei komprimieren kann. Entscheidend ist dabei nicht die Länge der Nachricht, sondern ihre Vorhersagbarkeit: Ein Text, in dem manche Zeichen sehr viel häufiger vorkommen als andere, lässt sich kürzer darstellen als eine zufällige Folge von Zeichen. Die Entropie misst genau diese Unsicherheit. Sie ist null, wenn immer dasselbe Zeichen folgt, und am größten, wenn alle Zeichen gleich wahrscheinlich sind. In deutschen Texten ist der Buchstabe E mit Abstand am häufigsten, gefolgt von N, I, R und S. Seltene Buchstaben wie Q, X oder Y kommen dagegen kaum vor. Ein Huffman-Code nutzt diese ungleiche Verteilung aus, indem er häufigen Zeichen kurze und seltenen Zeichen lange Codewörter zuweist.' },
+    { id: 'exEn', text: 'Information theory was founded by Claude Shannon in 1948. It describes how much information a message contains and how far it can be compressed without loss in the best case. What matters is not the length of the message but its predictability: a text in which some characters occur much more often than others can be represented more briefly than a random sequence of characters. Entropy measures exactly this uncertainty. It is zero when the same character always follows, and largest when all characters are equally likely. In English texts the letter E is by far the most common, followed by T, A, O and I. Rare letters such as Q, X or Z hardly occur at all. A Huffman code exploits this uneven distribution by assigning short codewords to frequent characters and long codewords to rare ones.' },
+    { id: 'exSame', text: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
+    { id: 'exPeriodic', text: '01'.repeat(48) },
+    { id: 'exRandom', text: '1011001110001011010011101100010111010010110001101001110010110101' },
+    { id: 'exFritz', text: 'Fischers Fritz fischt frische Fische, frische Fische fischt Fischers Fritz.' },
+    { id: 'exPi', text: '31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679' },
+  ];
+
   const el = {
-    text: $('text'), loadBtn: $('loadBtn'), file: $('file'), inputInfo: $('inputInfo'),
+    text: $('text'), examples: $('examples'), loadBtn: $('loadBtn'), file: $('file'), inputInfo: $('inputInfo'),
     bitsPanel: $('bitsPanel'), blockSize: $('blockSize'), spaces: $('spaces'), bits: $('bits'), bitsInfo: $('bitsInfo'),
     calcPanel: $('calcPanel'), cmpPanel: $('cmpPanel'), cmpBtn: $('cmpBtn'), cmp: $('cmp'), table: $('table'), rowsInfo: $('rowsInfo'), formula: $('formula'), lang: $('lang'),
   };
@@ -410,6 +423,20 @@
     render();
   }
 
+  function fillExamples() {
+    const cur = el.examples.value;
+    el.examples.textContent = '';
+    const first = mk('option', '', t('exChoose'));
+    first.value = '';
+    el.examples.appendChild(first);
+    EXAMPLES.forEach((x, i) => {
+      const o = mk('option', '', (i + 1) + ') ' + t(x.id));
+      o.value = String(i);
+      el.examples.appendChild(o);
+    });
+    el.examples.value = cur;
+  }
+
   function fillSizes() {
     el.blockSize.textContent = '';
     for (let n = 1; n <= 16; n++) {
@@ -428,14 +455,22 @@
   };
   el.text.addEventListener('focus', fit);
   el.text.addEventListener('blur', () => { fit(); el.text.scrollTop = 0; el.text.scrollLeft = 0; });
-  el.text.addEventListener('input', () => { state.file = null; fit(); update(); });
+  el.text.addEventListener('input', () => { el.examples.value = ''; state.file = null; fit(); update(); });
 
+  el.examples.addEventListener('change', () => {
+    if (el.examples.value === '') return;
+    state.file = null;
+    el.text.value = EXAMPLES[Number(el.examples.value)].text;
+    fit();
+    update();
+  });
   el.cmpBtn.addEventListener('click', () => { state.cmpShown = true; renderCompare(); });
   el.loadBtn.addEventListener('click', () => el.file.click());
   el.file.addEventListener('change', async () => {
     const f = el.file.files[0];
     if (!f) return;
     const buf = await f.slice(0, E.MAX_BYTES + 1).arrayBuffer();
+    el.examples.value = '';
     state.file = { name: f.name, size: f.size, bytes: Array.from(new Uint8Array(buf)) };
     el.text.value = '';
     el.file.value = '';
@@ -451,6 +486,7 @@
   function applyI18n() {
     document.documentElement.lang = I.getLang();
     document.title = t('title');
+    fillExamples();
     document.querySelectorAll('[data-i18n]').forEach(e => { e.textContent = t(e.dataset.i18n); });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(e => { e.placeholder = t(e.dataset.i18nPlaceholder); });
   }
