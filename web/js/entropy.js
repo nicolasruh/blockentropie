@@ -56,7 +56,7 @@
 
   function hexOf(block) {
     const digits = Math.ceil(block.length / 4);
-    return '0x' + parseInt(block, 2).toString(16).toUpperCase().padStart(digits, '0');
+    return parseInt(block, 2).toString(16).toUpperCase().padStart(digits, '0');
   }
 
   function textOf(block) {
@@ -70,7 +70,49 @@
     return out;
   }
 
-  const api = { MAX_BYTES, bytesToBits, bytesToBitsAuto, textToBytes, splitBlocks, stats, entropy, hexOf, textOf };
+  // Codewortlängen eines Huffman-Codes (Zwei-Warteschlangen-Verfahren)
+  function huffmanLengths(counts) {
+    const k = counts.length;
+    if (k === 1) return [1];
+    const w = counts.slice();
+    const parent = new Array(k).fill(-1);
+    const q1 = counts.map((_, i) => i).sort((a, b) => counts[a] - counts[b]);
+    const q2 = [];
+    let i = 0, j = 0;
+    const take = () => {
+      if (i < q1.length && (j >= q2.length || w[q1[i]] <= w[q2[j]])) return q1[i++];
+      return q2[j++];
+    };
+    for (let s = 0; s < k - 1; s++) {
+      const a = take(), b = take();
+      const id = w.length;
+      w.push(w[a] + w[b]);
+      parent.push(-1);
+      parent[a] = parent[b] = id;
+      q2.push(id);
+    }
+    const depth = new Array(w.length).fill(0);
+    for (let x = w.length - 2; x >= 0; x--) depth[x] = depth[parent[x]] + 1;
+    return depth.slice(0, k);
+  }
+
+  // Vergleichszeile für Blockgröße n: Entropie, Huffman-Länge, Codetabelle (Block + Codewort je Eintrag)
+  function compare(bits, n) {
+    const { blocks } = splitBlocks(bits, n);
+    const s = stats(blocks);
+    const counts = s.rows.map(r => r.count);
+    const len = huffmanLengths(counts);
+    let payload = 0, lenSum = 0;
+    counts.forEach((c, x) => { payload += c * len[x]; lenSum += len[x]; });
+    const table = s.rows.length * n + lenSum;
+    const h = entropy(s.rows, s.total);
+    return {
+      n, k: s.rows.length, h, hn: h / n, ln: payload / (s.total * n), upper: h / n + 1 / n,
+      payload, table, total: payload + table, orig: bits.length, ratio: (payload + table) / bits.length,
+    };
+  }
+
+  const api = { huffmanLengths, compare, MAX_BYTES, bytesToBits, bytesToBitsAuto, textToBytes, splitBlocks, stats, entropy, hexOf, textOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Entropy = api;
 })(typeof self !== 'undefined' ? self : this);

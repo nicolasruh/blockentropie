@@ -11,7 +11,7 @@
   const el = {
     text: $('text'), loadBtn: $('loadBtn'), file: $('file'), inputInfo: $('inputInfo'),
     bitsPanel: $('bitsPanel'), blockSize: $('blockSize'), spaces: $('spaces'), bits: $('bits'), bitsInfo: $('bitsInfo'),
-    calcPanel: $('calcPanel'), table: $('table'), rowsInfo: $('rowsInfo'), formula: $('formula'), lang: $('lang'),
+    calcPanel: $('calcPanel'), cmpPanel: $('cmpPanel'), cmpBtn: $('cmpBtn'), cmp: $('cmp'), table: $('table'), rowsInfo: $('rowsInfo'), formula: $('formula'), lang: $('lang'),
   };
 
   const state = {
@@ -23,6 +23,7 @@
     blocks: [], pad: 0,
     rows: [], total: 0,
     mode: 'show',
+    cmpShown: false,
     slots: [],
     selected: null,
     solved: false,
@@ -107,17 +108,18 @@
   }
 
   function renderTable() {
-    const n = state.n, text = n % 8 === 0;
+    const n = state.n;
+    const col = n === 8 ? 'colChar' : (n === 4 || n === 12 || n === 16) ? 'colHexNo' : null;
     const build = state.mode === 'build' && buildPossible();
     const tb = mk('table');
     const hr = mk('tr');
-    [t('colBlock'), t(text ? 'colText' : 'colHex'), t('colCount'), t('colProb')].forEach(h => hr.appendChild(mk('th', '', h)));
+    [t('colBlock'), col && t(col), t('colCount'), t('colProb')].filter(Boolean).forEach(h => hr.appendChild(mk('th', '', h)));
     tb.appendChild(mk('thead')).appendChild(hr);
     const body = mk('tbody');
     state.rows.slice(0, MAX_ROWS).forEach((r, i) => {
       const tr = mk('tr');
       tr.appendChild(mk('td', 'mono', r.block));
-      tr.appendChild(mk('td', 'mono', text ? E.textOf(r.block) : E.hexOf(r.block)));
+      if (col) tr.appendChild(mk('td', 'mono', n === 8 ? E.textOf(r.block) : E.hexOf(r.block)));
       tr.appendChild(mk('td', 'mono', String(r.count)));
       const td = mk('td', 'mono');
       if (build) {
@@ -137,7 +139,7 @@
     if (state.rows.length <= MAX_ROWS) {
       const f = mk('tr', 'sum');
       f.appendChild(mk('td', '', t('total')));
-      f.appendChild(mk('td'));
+      if (col) f.appendChild(mk('td'));
       f.appendChild(mk('td', 'mono', String(state.total)));
       f.appendChild(mk('td', 'mono', '1'));
       tb.appendChild(mk('tfoot')).appendChild(f);
@@ -161,6 +163,7 @@
     const box = mk('div', 'results');
     box.appendChild(eqLine('', t('resBlock', { h: fmt(h) })));
     box.appendChild(eqLine('', t('resBit', { h: fmt(h / state.n), n: state.n })));
+    box.appendChild(eqLine('', t('resRel', { r: (100 * h / state.n).toFixed(2), d: (100 - 100 * h / state.n).toFixed(2) })));
     box.appendChild(eqLine('', t('resMax', { n: state.n })));
     return box;
   }
@@ -232,15 +235,46 @@
     else renderBuild(el.formula, h);
   }
 
+  function renderCompare() {
+    el.cmp.textContent = '';
+    if (!state.cmpShown || !state.bits) return;
+    const rows = [];
+    for (let n = 1; n <= 16; n++) rows.push(E.compare(state.bits, n));
+    const best = rows.reduce((b, r) => (r.total < b.total ? r : b), rows[0]);
+    const tb = mk('table');
+    const hr = mk('tr');
+    [['cmpN'], ['cmpK'], ['cmpHn', 'tipHn'], ['cmpLn', 'tipLn'], ['cmpUp', 'tipUp'], ['cmpTab', 'tipTab'], ['cmpTot', 'tipTot'], ['cmpRatio', 'tipRatio']].forEach(([k, tip]) => {
+      const th = mk('th', '', t(k));
+      if (tip) { th.title = t(tip); th.classList.add('tip'); }
+      hr.appendChild(th);
+    });
+    tb.appendChild(mk('thead')).appendChild(hr);
+    const body = mk('tbody');
+    rows.forEach(r => {
+      const tr = mk('tr', r === best ? 'best' : r.n === state.n ? 'cur' : '');
+      [String(r.n), String(r.k), fmt(r.hn), fmt(r.ln), fmt(r.upper), String(r.table), String(r.total), (100 * r.ratio).toFixed(1) + ' %']
+        .forEach(v => tr.appendChild(mk('td', 'mono', v)));
+      body.appendChild(tr);
+    });
+    tb.appendChild(body);
+    const wrap = mk('div', 'scroll full');
+    wrap.appendChild(tb);
+    el.cmp.appendChild(wrap);
+    el.cmp.appendChild(mk('p', 'message ok', t('cmpBest', { n: best.n, r: (100 * best.ratio).toFixed(1) })));
+    el.cmp.appendChild(mk('p', 'note small', t('cmpNote')));
+  }
+
   function render() {
     const has = state.bits.length > 0;
     renderInput();
     el.bitsPanel.hidden = !has;
     el.calcPanel.hidden = !has;
+    el.cmpPanel.hidden = !has;
     if (!has) return;
     renderBits();
     renderTable();
     renderFormula();
+    renderCompare();
   }
 
   // ---- Manueller Modus ----
@@ -325,7 +359,7 @@
 
   function fillSizes() {
     el.blockSize.textContent = '';
-    for (let n = 2; n <= 16; n++) {
+    for (let n = 1; n <= 16; n++) {
       const o = mk('option', '', String(n));
       o.value = n;
       if (n === state.n) o.selected = true;
@@ -343,6 +377,7 @@
   el.text.addEventListener('blur', () => { fit(); el.text.scrollTop = 0; el.text.scrollLeft = 0; });
   el.text.addEventListener('input', () => { state.file = null; fit(); update(); });
 
+  el.cmpBtn.addEventListener('click', () => { state.cmpShown = true; renderCompare(); });
   el.loadBtn.addEventListener('click', () => el.file.click());
   el.file.addEventListener('change', async () => {
     const f = el.file.files[0];

@@ -61,3 +61,10 @@ tfoot td { font-weight: 600; background: #f6f8fb; }
 .eq .lbl { margin-right: 4px; }
 #formula .buttons { margin-top: 10px; }
 @media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); } }
+#table td.mono:first-child { white-space: nowrap; }
+#table .scroll, .scroll { max-height: max(340px, calc(100vh - 200px)); }
+.scroll.full { max-height: none; }
+th.tip { cursor: help; text-decoration: underline dotted; }
+tr.best td { background: #dff1de; font-weight: 600; }
+tr.cur td { background: #fff4c9; }
+#cmp .scroll { overflow-x: auto; }
