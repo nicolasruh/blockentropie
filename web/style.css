@@ -70,3 +70,7 @@ tr.cur td { background: #fff4c9; }
 #cmp .scroll { overflow-x: auto; }
 .chkrow { margin: 8px 0; }
 .chkrow input { width: 8em; margin-left: 6px; }
+.chkrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chkfb { font-weight: 600; }
+.chkfb.ok { color: #1e7a34; }
+.chkfb.error { color: #b02a2a; }
