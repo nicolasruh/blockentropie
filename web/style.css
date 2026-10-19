@@ -68,3 +68,5 @@ th.tip { cursor: help; text-decoration: underline dotted; }
 tr.best td { background: #dff1de; font-weight: 600; }
 tr.cur td { background: #fff4c9; }
 #cmp .scroll { overflow-x: auto; }
+.chkrow { margin: 8px 0; }
+.chkrow input { width: 8em; margin-left: 6px; }

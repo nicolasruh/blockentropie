@@ -24,6 +24,7 @@
     rows: [], total: 0,
     mode: 'show',
     cmpShown: false,
+    chk: { h: '', hn: '', msgs: null },
     slots: [],
     selected: null,
     solved: false,
@@ -69,6 +70,7 @@
     state.selected = null;
     state.solved = false;
     state.msg = null;
+    state.chk.msgs = null;
   }
 
   // ---- Darstellung ----
@@ -227,11 +229,58 @@
     if (state.solved) f.appendChild(results(h));
   }
 
+  const parseNum = s => {
+    const v = parseFloat(String(s).trim().replace(',', '.'));
+    return Number.isFinite(v) && /^[-+]?\d*[.,]?\d+$/.test(String(s).trim()) ? v : NaN;
+  };
+
+  function renderCheck(f, h) {
+    f.appendChild(mk('h3', '', t('chkTitle')));
+    f.appendChild(mk('p', 'note small', t('chkHint')));
+    const row = (id, label, key) => {
+      const d = mk('div', 'chkrow');
+      const l = mk('label', '', label + ' ');
+      const inp = mk('input');
+      inp.type = 'text'; inp.id = id; inp.autocomplete = 'off'; inp.inputMode = 'decimal';
+      inp.value = state.chk[key];
+      inp.addEventListener('input', () => { state.chk[key] = inp.value; });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { runCheck(h); render(); } });
+      l.appendChild(inp);
+      d.appendChild(l);
+      return d;
+    };
+    f.appendChild(row('chkH', t('chkH'), 'h'));
+    f.appendChild(row('chkHn', t('chkHn'), 'hn'));
+    const b = mk('button', '', t('chkBtn'));
+    b.addEventListener('click', () => { runCheck(h); render(); });
+    f.appendChild(mk('div', 'buttons')).appendChild(b);
+    if (state.chk.msgs) state.chk.msgs.forEach(m => f.appendChild(mk('p', 'message ' + m.kind, m.text)));
+  }
+
+  function runCheck(h) {
+    const tol = 0.0051;
+    const vals = [['h', h, 'chkWhatH'], ['hn', h / state.n, 'chkWhatHn']];
+    const entered = vals.map(([k]) => parseNum(state.chk[k]));
+    if (entered.some(Number.isNaN)) { state.chk.msgs = [{ kind: 'error', text: t('chkEmpty') }]; return; }
+    const msgs = [];
+    let allOk = true;
+    vals.forEach(([k, truth, w], i) => {
+      const d = entered[i] - truth;
+      const what = t(w);
+      if (Math.abs(d) <= tol) msgs.push({ kind: 'ok', text: t('chkOk', { what }) });
+      else { allOk = false; msgs.push({ kind: 'error', text: t(d > 0 ? 'chkHigh' : 'chkLow', { what }) }); }
+    });
+    if (allOk) msgs.splice(0, msgs.length, { kind: 'ok', text: t('chkBoth') });
+    else if (!(Math.abs(entered[0] - vals[0][1]) <= tol) ) msgs.push({ kind: '', text: t('chkRelated', { n: state.n }) });
+    state.chk.msgs = msgs;
+  }
+
   function renderFormula() {
     const h = E.entropy(state.rows, state.total);
     el.formula.textContent = '';
     renderGeneral(el.formula);
     if (state.mode === 'show') renderConcrete(el.formula, h);
+    else if (state.mode === 'check') renderCheck(el.formula, h);
     else renderBuild(el.formula, h);
   }
 
@@ -243,7 +292,7 @@
     const best = rows.reduce((b, r) => (r.total < b.total ? r : b), rows[0]);
     const tb = mk('table');
     const hr = mk('tr');
-    [['cmpN'], ['cmpK'], ['cmpHn', 'tipHn'], ['cmpLn', 'tipLn'], ['cmpUp', 'tipUp'], ['cmpTab', 'tipTab'], ['cmpTot', 'tipTot'], ['cmpRatio', 'tipRatio']].forEach(([k, tip]) => {
+    [['cmpN'], ['cmpK'], ['cmpHn', 'tipHn'], ['cmpLn', 'tipLn'], ['cmpTot', 'tipTot'], ['cmpRatio', 'tipRatio']].forEach(([k, tip]) => {
       const th = mk('th', '', t(k));
       if (tip) { th.title = t(tip); th.classList.add('tip'); }
       hr.appendChild(th);
@@ -252,7 +301,7 @@
     const body = mk('tbody');
     rows.forEach(r => {
       const tr = mk('tr', r === best ? 'best' : r.n === state.n ? 'cur' : '');
-      [String(r.n), String(r.k), fmt(r.hn), fmt(r.ln), fmt(r.upper), String(r.table), String(r.total), (100 * r.ratio).toFixed(1) + ' %']
+      [String(r.n), String(r.k), fmt(r.hn), fmt(r.ln), String(r.total), (100 * r.ratio).toFixed(1) + ' %']
         .forEach(v => tr.appendChild(mk('td', 'mono', v)));
       body.appendChild(tr);
     });
