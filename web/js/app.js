@@ -21,6 +21,46 @@
     { id: 'exPi', text: '31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679' },
   ];
 
+  // Pseudozufälliger Text mit deutscher Buchstabenverteilung (feste Startzahl, daher immer derselbe)
+  function makeLongText() {
+    const letters = 'eeeeeeeeeeeeeeeennnnnnnnniiiiiiirrrrrrrsssssssaaaaaattttttdddddhhhhuuuullllcccggggmmoobbwwffkkzzppvv';
+    let s = 12345, out = '';
+    const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+    while (out.length < 9000) {
+      const len = 2 + Math.floor(rnd() * 8);
+      let w = '';
+      for (let k = 0; k < len; k++) w += letters[Math.floor(rnd() * letters.length)];
+      out += w + ' ';
+    }
+    return out.trim();
+  }
+  EXAMPLES.splice(5, 0, { id: 'exLong', text: makeLongText() });
+  EXAMPLES.push({ id: 'exBmp', file: () => makeBmp() });
+
+  // 64×64-Pixel-BMP mit 16 Bit pro Pixel (RGB555), vier Farben: ein Smiley
+  function makeBmp() {
+    const W = 64, H = 64, size = 54 + W * H * 2;
+    const b = new Uint8Array(size);
+    const dv = new DataView(b.buffer);
+    b[0] = 0x42; b[1] = 0x4d;
+    dv.setUint32(2, size, true); dv.setUint32(10, 54, true);
+    dv.setUint32(14, 40, true); dv.setInt32(18, W, true); dv.setInt32(22, H, true);
+    dv.setUint16(26, 1, true); dv.setUint16(28, 16, true); dv.setUint32(34, W * H * 2, true);
+    const BG = 0x7fff, YEL = 0x7fe0, BLK = 0x0000, RED = 0x7c00;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = x - 31.5, dy = y - 31.5, r = Math.hypot(dx, dy);
+        let c = BG;
+        if (r < 28) c = YEL;
+        if (r < 28 && r >= 26) c = BLK;
+        if (r < 26 && Math.hypot(Math.abs(dx) - 9, dy - 8) < 4) c = BLK;
+        if (r < 26 && dy < -8 && Math.abs(Math.hypot(dx, dy + 8) - 17) < 1.5) c = RED;
+        dv.setUint16(54 + (y * W + x) * 2, c, true);
+      }
+    }
+    return Array.from(b);
+  }
+
   const el = {
     text: $('text'), examples: $('examples'), loadBtn: $('loadBtn'), file: $('file'), inputInfo: $('inputInfo'),
     bitsPanel: $('bitsPanel'), blockSize: $('blockSize'), spaces: $('spaces'), bits: $('bits'), bitsInfo: $('bitsInfo'),
@@ -459,8 +499,15 @@
 
   el.examples.addEventListener('change', () => {
     if (el.examples.value === '') return;
-    state.file = null;
-    el.text.value = EXAMPLES[Number(el.examples.value)].text;
+    const ex = EXAMPLES[Number(el.examples.value)];
+    if (ex.file) {
+      const bytes = ex.file();
+      state.file = { name: t(ex.id), size: bytes.length, bytes };
+      el.text.value = '';
+    } else {
+      state.file = null;
+      el.text.value = ex.text;
+    }
     fit();
     update();
   });
